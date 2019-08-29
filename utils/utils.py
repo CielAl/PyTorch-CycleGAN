@@ -101,7 +101,7 @@ class ReplayBuffer:
                     self.data[i] = element
                 else:
                     to_return.append(element)
-        return torch.tensor(torch.cat(to_return), requires_grad=True)
+        return torch.cat(to_return).requires_grad_(True)
 
 
 class LambdaLR:

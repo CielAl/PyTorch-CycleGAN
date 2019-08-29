@@ -9,7 +9,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 
 from datasets import ImageDataset
-from models import Discriminator
+from models import PatchGanDiscriminator
 from models import Generator
 from utils import LambdaLR
 from utils import Logger
@@ -40,8 +40,8 @@ if torch.cuda.is_available() and not opt.cuda:
 # Networks
 netG_A2B = Generator(opt.input_nc, opt.output_nc)
 netG_B2A = Generator(opt.output_nc, opt.input_nc)
-netD_A = Discriminator(opt.input_nc)
-netD_B = Discriminator(opt.output_nc)
+netD_A = PatchGanDiscriminator(opt.input_nc, norm_layer=nn.InstanceNorm2d)
+netD_B = PatchGanDiscriminator(opt.output_nc, norm_layer=nn.InstanceNorm2d)
 
 if opt.cuda:
     netG_A2B.cuda()

@@ -93,3 +93,49 @@ class Discriminator(nn.Module):
         x = self.model(x)
         # Average pooling and flatten
         return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+
+
+class PatchGanDiscriminator(nn.Module):
+    def __init__(self, input_nc: int,
+                 ndf: int = 64,
+                 n_layers: int = 3,
+                 norm_layer: type = nn.BatchNorm2d,
+                 use_sigmoid: bool = False):
+        super(PatchGanDiscriminator, self).__init__()
+        use_bias = norm_layer == nn.InstanceNorm2d
+
+        kernel_size = 4
+        pad_width = 1
+        sequence = [
+            nn.Conv2d(input_nc, ndf, kernel_size=kernel_size, stride=2, padding=pad_width),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        nf_mult = 1
+        for n in range(1, n_layers):
+            nf_mult_prev = nf_mult
+            nf_mult = min(2 ** n, 8)
+            sequence += [
+                nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+                          kernel_size=kernel_size, stride=2, padding=pad_width, bias=use_bias),
+                norm_layer(ndf * nf_mult),
+                nn.LeakyReLU(0.2, True)
+            ]
+
+        nf_mult_prev = nf_mult
+        nf_mult = min(2 ** n_layers, 8)
+        sequence += [
+            nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+                      kernel_size=kernel_size, stride=1, padding=pad_width, bias=use_bias),
+            norm_layer(ndf * nf_mult),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kernel_size, stride=1, padding=pad_width)]
+
+        if use_sigmoid:
+            sequence += [nn.Sigmoid()]
+        self.model = nn.Sequential(*sequence)
+
+    def forward(self, x):
+        return self.model(x)

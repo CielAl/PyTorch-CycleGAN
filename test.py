@@ -67,8 +67,8 @@ if not os.path.exists('output/B'):
 
 for i, batch in enumerate(dataloader):
     # Set model input
-    real_A = torch.tensor(input_A.copy_(batch['A']), requires_grad=True)
-    real_B = torch.tensor(input_B.copy_(batch['B']), requires_grad=True)
+    real_A = input_A.copy_(batch['A']).requires_grad_(True)
+    real_B = input_B.copy_(batch['B']).requires_grad(True)
 
     # Generate output
     fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
