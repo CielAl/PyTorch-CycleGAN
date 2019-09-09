@@ -18,7 +18,7 @@ def tensor2image(tensor):
 
 class Logger:
     def __init__(self, n_epochs, batches_epoch):
-        self.viz = Visdom()
+        self.viz = Visdom(port=9999)
         self.n_epochs = n_epochs
         self.batches_epoch = batches_epoch
         self.epoch = 1
@@ -37,10 +37,14 @@ class Logger:
             '\rEpoch %03d/%03d [%04d/%04d] -- ' % (self.epoch, self.n_epochs, self.batch, self.batches_epoch))
 
         for i, loss_name in enumerate(losses.keys()):
-            if loss_name not in self.losses:
-                self.losses[loss_name] = losses[loss_name].data[0]
+            if losses[loss_name].data.ndimension() == 0:
+                loss_val = losses[loss_name].data.item()
             else:
-                self.losses[loss_name] += losses[loss_name].data[0]
+                loss_val = losses[loss_name].data[0]
+            if loss_name not in self.losses:
+                self.losses[loss_name] = loss_val
+            else:
+                self.losses[loss_name] += loss_val
 
             if (i + 1) == len(losses.keys()):
                 sys.stdout.write('%s: %.4f -- ' % (loss_name, self.losses[loss_name] / self.batch))
@@ -118,7 +122,7 @@ class LambdaLR:
 def weights_init_normal(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        nn.init.normal(m.weight.data, 0.0, 0.02)
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm2d') != -1:
-        nn.init.normal(m.weight.data, 1.0, 0.02)
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant(m.bias.data, 0.0)

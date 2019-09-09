@@ -4,50 +4,50 @@ import argparse
 import itertools
 
 import torch
+import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import DataLoader
 
 from datasets import ImageDataset
-from models import PatchGanDiscriminator
 from models import Generator
+from models import PatchGanDiscriminator
 from utils import LambdaLR
 from utils import Logger
 from utils import ReplayBuffer
 from utils import weights_init_normal
-import torch.nn as nn
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', type=int, default=0, help='starting epoch')
-parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
-parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-parser.add_argument('--dataroot', type=str, default='datasets/horse2zebra/', help='root directory of the dataset')
+parser.add_argument('--n_epochs', type=int, default=1, help='number of epochs of training')
+parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
+parser.add_argument('--dataroot', type=str, default='datasets/tcga/', help='root directory of the dataset')
 parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-parser.add_argument('--decay_epoch', type=int, default=100,
+parser.add_argument('--decay_epoch', type=int, default=0,
                     help='epoch to start linearly decaying the learning rate to 0')
 parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
 parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
 parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
-parser.add_argument('--cuda', action='store_true', help='use GPU computation')
-parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-opt = parser.parse_args()
+parser.add_argument('--cuda', default=True, action='store_true', help='use GPU computation')
+parser.add_argument('--n_cpu', type=int, default=6, help='number of cpu threads to use during batch generation')
+parser.add_argument('--gpuid', type=int, default=0, help='GPU ID')
+parser.add_argument('--stain_gan', default=True, action='store_true', help='use Stain Gan Discriminator')
+opt, remaining = parser.parse_known_args()
 print(opt)
 
 if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
-###### Definition of variables ######
-# Networks
-netG_A2B = Generator(opt.input_nc, opt.output_nc)
-netG_B2A = Generator(opt.output_nc, opt.input_nc)
-netD_A = PatchGanDiscriminator(opt.input_nc, norm_layer=nn.InstanceNorm2d)
-netD_B = PatchGanDiscriminator(opt.output_nc, norm_layer=nn.InstanceNorm2d)
-
 if opt.cuda:
-    netG_A2B.cuda()
-    netG_B2A.cuda()
-    netD_A.cuda()
-    netD_B.cuda()
+    device = torch.device(f"cuda:{opt.gpuid}")
+else:
+    device = torch.device("cpu")
+# ##### Definition of variables ######
+# Networks
+netG_A2B = Generator(opt.input_nc, opt.output_nc).to(device)
+netG_B2A = Generator(opt.output_nc, opt.input_nc).to(device)
+netD_A = PatchGanDiscriminator(opt.input_nc, norm_layer=nn.InstanceNorm2d).to(device)
+netD_B = PatchGanDiscriminator(opt.output_nc, norm_layer=nn.InstanceNorm2d).to(device)
 
 netG_A2B.apply(weights_init_normal)
 netG_B2A.apply(weights_init_normal)
@@ -65,19 +65,25 @@ optimizer_G = torch.optim.Adam(itertools.chain(netG_A2B.parameters(), netG_B2A.p
 optimizer_D_A = torch.optim.Adam(netD_A.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 optimizer_D_B = torch.optim.Adam(netD_B.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 
+# noinspection PyTypeChecker
 lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G,
                                                    lr_lambda=LambdaLR(opt.n_epochs, opt.epoch, opt.decay_epoch).step)
+# noinspection PyTypeChecker
 lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A,
                                                      lr_lambda=LambdaLR(opt.n_epochs, opt.epoch, opt.decay_epoch).step)
+# noinspection PyTypeChecker
 lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B,
                                                      lr_lambda=LambdaLR(opt.n_epochs, opt.epoch, opt.decay_epoch).step)
 
 # Inputs & targets memory allocation
-Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
-input_A = Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size)
-input_B = Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size)
-target_real = torch.tensor(Tensor(opt.batchSize).fill_(1.0))
-target_fake = torch.tensor(Tensor(opt.batchSize).fill_(0.0))
+# noinspection PyArgumentList
+input_A = torch.Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size).to(device)
+# noinspection PyArgumentList
+input_B = torch.Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size).to(device)
+# noinspection PyArgumentList
+target_real = torch.Tensor(opt.batchSize).fill_(1.0).to(device)
+# noinspection PyArgumentList
+target_fake = torch.Tensor(opt.batchSize).fill_(0.0).to(device)
 
 fake_A_buffer = ReplayBuffer()
 fake_B_buffer = ReplayBuffer()
@@ -88,20 +94,23 @@ transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BICUBIC),
                transforms.RandomHorizontalFlip(),
                transforms.ToTensor(),
                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-dataloader = DataLoader(ImageDataset(opt.dataroot, transforms_=transforms_, unaligned=True),
-                        batch_size=opt.batchSize, shuffle=True, num_workers=opt.n_cpu)
+data_set = ImageDataset(opt.dataroot, transforms_=transforms_, unaligned=True)
+data_loader = DataLoader(data_set,
+                         batch_size=opt.batchSize,
+                         shuffle=True,
+                         num_workers=opt.n_cpu)
 
 # Loss plot
-logger = Logger(opt.n_epochs, len(dataloader))
+logger = Logger(opt.n_epochs, len(data_loader))
 ###################################
 
 # ##### Training ######
 for epoch in range(opt.epoch, opt.n_epochs):
-    for i, batch in enumerate(dataloader):
+    print(f"Epoch:{epoch}")
+    for i, batch in enumerate(data_loader):
         # Set model input
-        real_A = torch.tensor(input_A.copy_(batch['A']), requires_grad=True)
-        real_B = torch.tensor(input_B.copy_(batch['B']), requires_grad=True)
-
+        real_A = input_A.copy_(batch['A']).clone().detach().requires_grad_(True)
+        real_B = input_B.copy_(batch['B']).clone().detach().requires_grad_(True)
         # ##### Generators A2B and B2A ######
         optimizer_G.zero_grad()
 
@@ -173,7 +182,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
         optimizer_D_B.step()
         ###################################
-
+        breakpoint()
         # Progress report (http://localhost:8097)
         logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B),
                     'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),

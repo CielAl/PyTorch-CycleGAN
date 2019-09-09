@@ -138,4 +138,6 @@ class PatchGanDiscriminator(nn.Module):
         self.model = nn.Sequential(*sequence)
 
     def forward(self, x):
-        return self.model(x)
+        features = self.model(x)
+        out = F.adaptive_avg_pool2d(features, (1, 1)).view(features.size()[0], -1)
+        return out
