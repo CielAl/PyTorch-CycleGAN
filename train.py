@@ -2,7 +2,7 @@
 
 import argparse
 import itertools
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -107,7 +107,7 @@ logger = Logger(opt.n_epochs, len(data_loader))
 # ##### Training ######
 for epoch in range(opt.epoch, opt.n_epochs):
     print(f"Epoch:{epoch}")
-    for i, batch in enumerate(data_loader):
+    for i, batch in enumerate(tqdm(data_loader)):
         # Set model input
         real_A = input_A.copy_(batch['A']).clone().detach().requires_grad_(True)
         real_B = input_B.copy_(batch['B']).clone().detach().requires_grad_(True)
@@ -182,7 +182,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
         optimizer_D_B.step()
         ###################################
-        breakpoint()
+
         # Progress report (http://localhost:8097)
         logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B),
                     'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),
