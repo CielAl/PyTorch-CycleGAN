@@ -90,9 +90,10 @@ class Discriminator(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
-        x = self.model(x)
         # Average pooling and flatten
-        return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        features = self.model(x)
+        out = F.adaptive_avg_pool2d(features, (1, 1)).view(features.size()[0], -1)
+        return out
 
 
 class PatchGanDiscriminator(nn.Module):

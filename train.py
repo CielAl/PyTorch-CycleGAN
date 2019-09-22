@@ -19,13 +19,13 @@ from utils import weights_init_normal
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', type=int, default=0, help='starting epoch')
-parser.add_argument('--n_epochs', type=int, default=1, help='number of epochs of training')
-parser.add_argument('--batchSize', type=int, default=2, help='size of the batches')
+parser.add_argument('--n_epochs', type=int, default=30, help='number of epochs of training')
+parser.add_argument('--batchSize', type=int, default=8, help='size of the batches')
 parser.add_argument('--dataroot', type=str, default='datasets/tcga/', help='root directory of the dataset')
 parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-parser.add_argument('--decay_epoch', type=int, default=0,
+parser.add_argument('--decay_epoch', type=int, default=25,
                     help='epoch to start linearly decaying the learning rate to 0')
-parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
+parser.add_argument('--size', type=int, default=128, help='size of the data crop (squared assumed)')
 parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
 parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
 parser.add_argument('--cuda', default=True, action='store_true', help='use GPU computation')
@@ -42,6 +42,7 @@ if opt.cuda:
     device = torch.device(f"cuda:{opt.gpuid}")
 else:
     device = torch.device("cpu")
+print(device)
 # ##### Definition of variables ######
 # Networks
 netG_A2B = Generator(opt.input_nc, opt.output_nc).to(device)
@@ -107,7 +108,7 @@ logger = Logger(opt.n_epochs, len(data_loader))
 # ##### Training ######
 for epoch in range(opt.epoch, opt.n_epochs):
     print(f"Epoch:{epoch}")
-    for i, batch in enumerate(tqdm(data_loader)):
+    for i, batch in enumerate((data_loader)):
         # Set model input
         real_A = input_A.copy_(batch['A']).clone().detach().requires_grad_(True)
         real_B = input_B.copy_(batch['B']).clone().detach().requires_grad_(True)
@@ -151,7 +152,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # Real loss
         pred_real = netD_A(real_A)
         loss_D_real = criterion_GAN(pred_real, target_real)
-
+        continue
         # Fake loss
         fake_A = fake_A_buffer.push_and_pop(fake_A)
         pred_fake = netD_A(fake_A.detach())
