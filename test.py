@@ -14,7 +14,7 @@ from models import Generator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-parser.add_argument('--dataroot', type=str, default='datasets/horse2zebra/', help='root directory of the dataset')
+parser.add_argument('--dataroot', type=str, default='datasets/tcga/', help='root directory of the dataset')
 parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
 parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
 parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
@@ -48,11 +48,6 @@ netG_B2A.load_state_dict(torch.load(opt.generator_B2A))
 netG_A2B.eval()
 netG_B2A.eval()
 
-# Inputs & targets memory allocation
-# noinspection PyArgumentList
-input_A = torch.Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size).to(device)
-# noinspection PyArgumentList
-input_B = torch.Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size).to(device)
 
 # Dataset loader
 transforms_ = [transforms.ToTensor(),
@@ -72,8 +67,8 @@ if not os.path.exists('output/B'):
 
 for i, batch in enumerate(data_loader):
     # Set model input
-    real_A = input_A.copy_(batch['A']).requires_grad_(True)
-    real_B = input_B.copy_(batch['B']).requires_grad(True)
+    real_A = batch['A'].to(device)
+    real_B = batch['B'].to(device)
 
     # Generate output
     fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)

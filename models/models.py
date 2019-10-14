@@ -92,18 +92,18 @@ class Discriminator(nn.Module):
     def forward(self, x):
         # Average pooling and flatten
         features = self.model(x)
-        out = F.adaptive_avg_pool2d(features, (1, 1)).view(features.size()[0], -1)
-        return out
+        # features = F.adaptive_avg_pool2d(features, (1, 1)).view(features.size()[0], -1)
+        return features
 
 
 class PatchGanDiscriminator(nn.Module):
     def __init__(self, input_nc: int,
                  ndf: int = 64,
                  n_layers: int = 3,
-                 norm_layer: type = nn.BatchNorm2d,
+                 norm_layer: type = nn.InstanceNorm2d,
                  use_sigmoid: bool = False):
         super(PatchGanDiscriminator, self).__init__()
-        use_bias = norm_layer == nn.InstanceNorm2d
+        use_bias = norm_layer == nn.InstanceNorm2d or norm_layer == nn.BatchNorm2d
 
         kernel_size = 4
         pad_width = 1
@@ -140,5 +140,5 @@ class PatchGanDiscriminator(nn.Module):
 
     def forward(self, x):
         features = self.model(x)
-        out = F.adaptive_avg_pool2d(features, (1, 1)).view(features.size()[0], -1)
-        return out
+        features = F.adaptive_avg_pool2d(features, (1, 1)).view(features.size()[0], -1)
+        return features
