@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from datasets import ImageDataset
 from models import Generator
-from models import PatchGanDiscriminator
+from models import NLayerDiscriminator
 from utils import LambdaLR
 from torchnet.logger import VisdomPlotLogger, VisdomLogger
 from utils import ReplayBuffer
@@ -49,8 +49,8 @@ print(device)
 # Networks
 netG_A2B = Generator(opt.input_nc, opt.output_nc).to(device)
 netG_B2A = Generator(opt.output_nc, opt.input_nc).to(device)
-netD_A = PatchGanDiscriminator(opt.input_nc, norm_layer=nn.InstanceNorm2d).to(device)
-netD_B = PatchGanDiscriminator(opt.output_nc, norm_layer=nn.InstanceNorm2d).to(device)
+netD_A = NLayerDiscriminator(opt.input_nc, norm_layer=nn.InstanceNorm2d).to(device)
+netD_B = NLayerDiscriminator(opt.output_nc, norm_layer=nn.InstanceNorm2d).to(device)
 
 netG_A2B.apply(weights_init_normal)
 netG_B2A.apply(weights_init_normal)
@@ -78,11 +78,6 @@ lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A,
 lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B,
                                                      lr_lambda=LambdaLR(opt.n_epochs, opt.epoch, opt.decay_epoch).step)
 
-# Inputs & targets memory allocation
-# noinspection PyArgumentList
-input_A = torch.Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size).to(device)
-# noinspection PyArgumentList
-input_B = torch.Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size).to(device)
 # noinspection PyArgumentList
 target_real = torch.Tensor(opt.batchSize).fill_(1.0).to(device)
 # noinspection PyArgumentList
@@ -97,6 +92,8 @@ transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BICUBIC),
                transforms.RandomHorizontalFlip(),
                transforms.ToTensor(),
                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+
+
 data_set = ImageDataset(opt.dataroot, transforms_=transforms_, unaligned=True)
 data_loader = DataLoader(data_set,
                          batch_size=opt.batchSize,

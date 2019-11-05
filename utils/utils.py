@@ -7,7 +7,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from visdom import Visdom
-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 def tensor2image(tensor):
     image = 127.5 * (tensor[0].cpu().float().numpy() + 1.0)
@@ -121,7 +123,8 @@ class LambdaLR:
 
 def weights_init_normal(m):
     classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
+    logger.debug(classname)
+    if classname.find('Conv') != -1 or classname.find('ResizeConv') != -1:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm2d') != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
