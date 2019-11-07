@@ -1,7 +1,7 @@
 import glob
 import os
 import random
-from typing import Dict
+from typing import Dict, Union
 
 import torchvision.transforms as transforms
 from PIL import Image
@@ -35,7 +35,7 @@ class BiDataset(Dataset):
     KEY_IM_KEY: str = 'im_key'
 
     @staticmethod
-    def opt(dataset: Dataset, key: str):
+    def opt(dataset: Dataset, key: Union[str, int]):
         return {
             BiDataset.KEY_DATASET: dataset,
             BiDataset.KEY_IM_KEY: key
@@ -50,12 +50,13 @@ class BiDataset(Dataset):
         self.unaligned = unaligned
 
     def __getitem__(self, index):
-        item_a = self._dataset_source[index % len(self._dataset_source)]
+        item_a = self._dataset_source[index % len(self._dataset_source)][self._source_key]
 
         if self.unaligned:
             item_b = self._dataset_target[random.randint(0, len(self._dataset_target) - 1)]
         else:
             item_b = self._dataset_target[index % len(self._dataset_target)]
+        item_b = item_b[self._target_key]
         if self.transform is not None:
             item_a = self.transform(item_a)
             item_b = self.transform(item_b)
