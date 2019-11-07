@@ -221,7 +221,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
         """
     # Update learning rates
     for loss_name, meter in loss_meters.items():
-        loss_logger.log(meter.value(), name=loss_name)
+        loss_logger.log(epoch, meter.value(), name=loss_name)
+        meter.reset()
 
     lr_scheduler_G.step()
     lr_scheduler_D_A.step()
